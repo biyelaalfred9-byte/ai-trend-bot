@@ -1,39 +1,21 @@
 import os
 import requests
 import xml.etree.ElementTree as ET
-import google.generativeai as genai
-
-# Setup Gemini API
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-
-def get_working_model():
-    print("Asking Google for a list of available models...")
-    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    # Prefer a 'flash' model for speed and lower cost, fallback to the first available
-    for m in available_models:
-        if 'flash' in m:
-            print(f"Selected model: {m}")
-            return m
-    print(f"Selected model: {available_models[0]}")
-    return available_models[0]
-
-# Automatically pick a working model
-model_name = get_working_model()
-model = genai.GenerativeModel(model_name)
+from datetime import datetime
 
 def get_hacker_news():
     print("Fetching Hacker News...")
     try:
-        top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:10]
+        top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:5]
         titles = []
         for story_id in top_ids:
             item = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json").json()
             if 'title' in item:
-                titles.append(item['title'])
+                titles.append(f"- [{item['title']}]({item.get('url', 'https://news.ycombinator.com/item?id=' + str(story_id))})")
         return titles
     except Exception as e:
         print(f"Hacker News failed: {e}")
-        return []
+        return ["- Hacker News data unavailable today"]
 
 def get_google_news():
     print("Fetching Google News AI trends...")
@@ -41,40 +23,37 @@ def get_google_news():
         url = "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en"
         response = requests.get(url)
         root = ET.fromstring(response.content)
-        titles = [item.find('title').text for item in root.findall('.//item')[:10]]
+        titles = []
+        for item in root.findall('.//item')[:5]:
+            title = item.find('title').text
+            link = item.find('link').text
+            titles.append(f"- [{title}]({link})")
         return titles
     except Exception as e:
         print(f"Google News failed: {e}")
-        return []
+        return ["- Google News data unavailable today"]
 
-def generate_trends_report(hn_titles, google_titles):
-    print("Asking Gemini to analyze trends...")
-    if not hn_titles and not google_titles:
-        print("No data found to analyze.")
-        return
-        
-    prompt = f"""
-    You are an expert AI trend forecaster. Here are the top posts from Hacker News and Google News today:
+def generate_report(hn_titles, google_titles):
+    print("Building report...")
+    date_str = datetime.now().strftime("%Y-%m-%d")
     
-    Hacker News: {hn_titles}
-    Google News: {google_titles}
-    
-    Based on this data, identify the top 3 emerging AI trends. 
-    For each trend, provide:
-    1. The name of the trend
-    2. A 1-paragraph summary of why it's trending
-    3. One actionable content idea (e.g., a YouTube video idea, a blog post title, or a tweet thread)
-    
-    Format the output in clean Markdown.
-    """
-    
-    response = model.generate_content(prompt)
+    report = f"""# 🤖 Daily AI Trend Report - {date_str}
+
+## 🔥 Top AI Stories from Hacker News
+{chr(10).join(hn_titles)}
+
+## 📰 Top AI Headlines from Google News
+{chr(10).join(google_titles)}
+
+---
+*Generated automatically by your AI Trend Finder Bot.*
+"""
     
     with open("trends.md", "w") as f:
-        f.write(response.text)
+        f.write(report)
     print("Report saved to trends.md!")
 
 if __name__ == "__main__":
     hn = get_hacker_news()
     google = get_google_news()
-    generate_trends_report(hn, google)
+    generate_report(hn, google)
