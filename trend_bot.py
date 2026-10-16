@@ -1,12 +1,10 @@
 import os
 import requests
 import xml.etree.ElementTree as ET
-import google.generativeai as genai
+from google import genai
 
-# Setup Gemini API
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-# Using the current stable model name to fix the 404 error
-model = genai.GenerativeModel('gemini-2.5-flash')
+# Setup Gemini API with the new SDK
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 def get_hacker_news():
     print("Fetching Hacker News...")
@@ -55,7 +53,11 @@ def generate_trends_report(hn_titles, google_titles):
     Format the output in clean Markdown.
     """
     
-    response = model.generate_content(prompt)
+    # Using the new SDK syntax and a current stable model
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt
+    )
     
     with open("trends.md", "w") as f:
         f.write(response.text)
