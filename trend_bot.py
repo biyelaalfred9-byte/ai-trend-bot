@@ -5,8 +5,8 @@ import google.generativeai as genai
 
 # Setup Gemini API
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-# Using the latest model name to avoid 404 errors
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+# Using the stable, supported model name to fix the 404 error
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 def get_hacker_news():
     print("Fetching Hacker News...")
