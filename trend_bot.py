@@ -1,10 +1,25 @@
 import os
 import requests
 import xml.etree.ElementTree as ET
-from google import genai
+import google.generativeai as genai
 
-# Setup Gemini API with the new SDK
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+# Setup Gemini API
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+
+def get_working_model():
+    print("Asking Google for a list of available models...")
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    # Prefer a 'flash' model for speed and lower cost, fallback to the first available
+    for m in available_models:
+        if 'flash' in m:
+            print(f"Selected model: {m}")
+            return m
+    print(f"Selected model: {available_models[0]}")
+    return available_models[0]
+
+# Automatically pick a working model
+model_name = get_working_model()
+model = genai.GenerativeModel(model_name)
 
 def get_hacker_news():
     print("Fetching Hacker News...")
@@ -53,11 +68,7 @@ def generate_trends_report(hn_titles, google_titles):
     Format the output in clean Markdown.
     """
     
-    # Using the exact model requested by the error message
-    response = client.models.generate_content(
-        model='gemini-3.8-flash',
-        contents=prompt
-    )
+    response = model.generate_content(prompt)
     
     with open("trends.md", "w") as f:
         f.write(response.text)
