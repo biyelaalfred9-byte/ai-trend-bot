@@ -1,35 +1,50 @@
 import os
 import requests
+import xml.etree.ElementTree as ET
 import google.generativeai as genai
 
 # Setup Gemini API
 genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Using the latest model name to avoid 404 errors
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 def get_hacker_news():
     print("Fetching Hacker News...")
-    top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:10]
-    titles = []
-    for story_id in top_ids:
-        item = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json").json()
-        if 'title' in item:
-            titles.append(item['title'])
-    return titles
+    try:
+        top_ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:10]
+        titles = []
+        for story_id in top_ids:
+            item = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json").json()
+            if 'title' in item:
+                titles.append(item['title'])
+        return titles
+    except Exception as e:
+        print(f"Hacker News failed: {e}")
+        return []
 
-def get_reddit_trends():
-    print("Fetching Reddit...")
-    headers = {'User-Agent': 'TrendBot/1.0'}
-    response = requests.get("https://www.reddit.com/r/artificial/hot.json?limit=10", headers=headers)
-    posts = response.json()['data']['children']
-    return [post['data']['title'] for post in posts]
+def get_google_news():
+    print("Fetching Google News AI trends...")
+    try:
+        url = "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en"
+        response = requests.get(url)
+        root = ET.fromstring(response.content)
+        titles = [item.find('title').text for item in root.findall('.//item')[:10]]
+        return titles
+    except Exception as e:
+        print(f"Google News failed: {e}")
+        return []
 
-def generate_trends_report(hn_titles, reddit_titles):
+def generate_trends_report(hn_titles, google_titles):
     print("Asking Gemini to analyze trends...")
+    if not hn_titles and not google_titles:
+        print("No data found to analyze.")
+        return
+        
     prompt = f"""
-    You are an expert AI trend forecaster. Here are the top posts from Hacker News and Reddit's r/artificial today:
+    You are an expert AI trend forecaster. Here are the top posts from Hacker News and Google News today:
     
     Hacker News: {hn_titles}
-    Reddit: {reddit_titles}
+    Google News: {google_titles}
     
     Based on this data, identify the top 3 emerging AI trends. 
     For each trend, provide:
@@ -42,12 +57,11 @@ def generate_trends_report(hn_titles, reddit_titles):
     
     response = model.generate_content(prompt)
     
-    # Save to markdown file
     with open("trends.md", "w") as f:
         f.write(response.text)
     print("Report saved to trends.md!")
 
 if __name__ == "__main__":
     hn = get_hacker_news()
-    reddit = get_reddit_trends()
-    generate_trends_report(hn, reddit)
+    google = get_google_news()
+    generate_trends_report(hn, google)
