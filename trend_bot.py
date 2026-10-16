@@ -53,9 +53,9 @@ def generate_trends_report(hn_titles, google_titles):
     Format the output in clean Markdown.
     """
     
-    # Using the new SDK syntax and a current stable model
+    # Using the exact model requested by the error message
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.8-flash',
         contents=prompt
     )
     
